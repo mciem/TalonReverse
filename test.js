@@ -1,65 +1,70 @@
-# Talon Reversing
-
-## Important Stuff
-1. "xal" - most important, contains fingerprints
-2. it seems like they use FingerprintJS to obtain "visitor_id" and "score"
-
-
-# Xal analysis
-
-``` javascript
-return _0xe82f6f['t4'] = _0xe82f6f["sent"], _0xe82f6f['t5'] = (2121 + 26 * -201 + -15 * -207, _0xe82f6f['t2'])(_0xe82f6f['t3'], _0xe82f6f['t4']), _0xe82f6f['t6'] = _0x1640c1, _0xe82f6f['t7'] = (7598 + 2473 * 2 + -32 * 392, _0xe82f6f['t1'])(_0xe82f6f['t5'], _0xe82f6f['t6']), _0xe82f6f['t8'] = {}, _0xe82f6f['t9'] = _0xa36910, _0x5a754d = (-1997 * 4 + 1015 + 19 * 367, _0xe82f6f['t0'])(_0xe82f6f['t7'], _0xe82f6f['t8'], _0xe82f6f['t9']), _0xe82f6f["abrupt"]('return', (_0x5b2e6f(_0x5213b5 = _0x2934f3, "xal", _0x420d7c(_0x5a754d)), _0x5b2e6f(_0x5213b5, "ewa", 'b'), _0x5b2e6f(_0x5213b5, "kid", _0x3a0d25), _0x5213b5));
-```
-
-After script deobfuscation we can see that heres the payload for /execute requests being returned. We can see that "_0x5b2e6f" function sets the values in payload and it takes those arguments:<br>
-```
- (json pointer (_0x2934f3), key, value)
-```
-We can tell that thats the pointer bcs of this:
-``` javascript
-var _0x2934f3 = {};
-_0x2934f3['v'] = 1;
-```
-<br>
-
-## Xal before encryption
-``` javascript
-_0x5a754d = (0, _0xe82f6f['t0'])(_0xe82f6f['t7'], _0xe82f6f['t8'], _0xe82f6f['t9'])
-```
-
-## Encryption function
-``` javascript
-function _0x420d7c(_0x4a761c) {
-    var _0x2ce575;
-    var _0x40db03 = unescape(encodeURIComponent(JSON.stringify(_0x4a761c)));
-    var _0x16633c = [];
-    var _0x446316 = 0;
-    var _0x2e8cf0 = '';
-    for (var _0x477886 = 0; _0x477886 < 256; _0x477886++) {
-        _0x16633c[_0x477886] = _0x477886;
+function encrypt(message) {
+    var tempVar;
+    var encodedMessage = unescape(encodeURIComponent(JSON.stringify(message)));
+    var permutationTable = [];
+    var permutationIndex = 0;
+    var encryptedText = '';
+    
+    for (var i = 0; i < 256; i++) {
+        permutationTable[i] = i;
     }
-    for (var _0x59729b = 0; _0x59729b < 256; _0x59729b++) {
-        _0x446316 = (_0x446316 + _0x16633c[_0x59729b] + "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".charCodeAt(_0x59729b % "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".length)) % 256;
-        _0x2ce575 = _0x16633c[_0x59729b];
-        _0x16633c[_0x59729b] = _0x16633c[_0x446316];
-        _0x16633c[_0x446316] = _0x2ce575;
+    
+    for (var j = 0; j < 256; j++) {
+        permutationIndex = (permutationIndex + permutationTable[j] + "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".charCodeAt(j % "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".length)) % 256;
+        tempVar = permutationTable[j];
+        permutationTable[j] = permutationTable[permutationIndex];
+        permutationTable[permutationIndex] = tempVar;
     }
-    var _0x710ce1 = 0;
-    _0x446316 = 0;
-    for (var _0x16418d = 0; _0x16418d < _0x40db03.length; _0x16418d++) {
-        _0x446316 = (_0x446316 + _0x16633c[_0x710ce1 = (_0x710ce1 + 1) % 256]) % 256;
-        _0x2ce575 = _0x16633c[_0x710ce1];
-        _0x16633c[_0x710ce1] = _0x16633c[_0x446316];
-        _0x16633c[_0x446316] = _0x2ce575;
-        _0x2e8cf0 += String.fromCharCode(_0x40db03.charCodeAt(_0x16418d) ^ _0x16633c[(_0x16633c[_0x710ce1] + _0x16633c[_0x446316]) % 256]);
+    
+    var keystreamIndex = 0;
+    permutationIndex = 0;
+    
+    for (var k = 0; k < encodedMessage.length; k++) {
+        permutationIndex = (permutationIndex + permutationTable[keystreamIndex = (keystreamIndex + 1) % 256]) % 256;
+        tempVar = permutationTable[keystreamIndex];
+        permutationTable[keystreamIndex] = permutationTable[permutationIndex];
+        permutationTable[permutationIndex] = tempVar;
+        encryptedText += String.fromCharCode(encodedMessage.charCodeAt(k) ^ permutationTable[(permutationTable[keystreamIndex] + permutationTable[permutationIndex]) % 256]);
     }
-    return window.btoa(_0x2e8cf0);
+    
+    return btoa(encryptedText);
 }
-```
 
-## Xal decrypted
-``` json
-{
+function decrypt(encryptedMessage) {
+    var tempVar;
+    var decodedMessage = atob(encryptedMessage);
+    var permutationTable = [];
+    var permutationIndex = 0;
+    var decryptedText = '';
+    
+    for (var i = 0; i < 256; i++) {
+        permutationTable[i] = i;
+    }
+    
+    for (var j = 0; j < 256; j++) {
+        permutationIndex = (permutationIndex + permutationTable[j] + "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".charCodeAt(j % "FZMÃ›SÃª/Â·V«xÞhí¢³4<`ô2ª,µ¦YÃ»".length)) % 256;
+        tempVar = permutationTable[j];
+        permutationTable[j] = permutationTable[permutationIndex];
+        permutationTable[permutationIndex] = tempVar;
+    }
+    
+    var keystreamIndex = 0;
+    permutationIndex = 0;
+    
+    for (var k = 0; k < decodedMessage.length; k++) {
+        permutationIndex = (permutationIndex + permutationTable[keystreamIndex = (keystreamIndex + 1) % 256]) % 256;
+        tempVar = permutationTable[keystreamIndex];
+        permutationTable[keystreamIndex] = permutationTable[permutationIndex];
+        permutationTable[permutationIndex] = tempVar;
+        decryptedText += String.fromCharCode(decodedMessage.charCodeAt(k) ^ permutationTable[(permutationTable[keystreamIndex] + permutationTable[permutationIndex]) % 256]);
+    }
+    
+    return decodeURIComponent(escape(decryptedText));
+}
+
+
+
+var payload = {
     "fingerprint_version": 42,
     "timestamp": "2024-05-13T12:23:49.249Z",
     "math_rand": "147f55ed96845",
@@ -528,10 +533,235 @@ function _0x420d7c(_0x4a761c) {
     "motion": {
         "mousemove": [
             {
-                "t": 6294, // time since init
-                "x": 450, 
+                "t": 6294,
+                "x": 450,
                 "y": 19
             },
+            {
+                "t": 6346,
+                "x": 485,
+                "y": 109
+            },
+            {
+                "t": 6395,
+                "x": 588,
+                "y": 422
+            },
+            {
+                "t": 6445,
+                "x": 623,
+                "y": 565
+            },
+            {
+                "t": 6457,
+                "x": 622,
+                "y": 569
+            },
+            {
+                "t": 6553,
+                "x": 611,
+                "y": 582
+            },
+            {
+                "t": 6603,
+                "x": 572,
+                "y": 612
+            },
+            {
+                "t": 6652,
+                "x": 468,
+                "y": 637
+            },
+            {
+                "t": 6685,
+                "x": 413,
+                "y": 628
+            },
+            {
+                "t": 6939,
+                "x": 412,
+                "y": 628
+            },
+            {
+                "t": 6987,
+                "x": 395,
+                "y": 636
+            },
+            {
+                "t": 7037,
+                "x": 378,
+                "y": 658
+            },
+            {
+                "t": 7087,
+                "x": 371,
+                "y": 671
+            },
+            {
+                "t": 7100,
+                "x": 370,
+                "y": 672
+            },
+            {
+                "t": 8814,
+                "x": 371,
+                "y": 672
+            },
+            {
+                "t": 8863,
+                "x": 419,
+                "y": 675
+            },
+            {
+                "t": 8914,
+                "x": 628,
+                "y": 707
+            },
+            {
+                "t": 8937,
+                "x": 809,
+                "y": 730
+            },
+            {
+                "t": 1564641,
+                "x": 667,
+                "y": 557
+            },
+            {
+                "t": 1564641,
+                "x": 667,
+                "y": 557
+            },
+            {
+                "t": 1620345,
+                "x": 779,
+                "y": 909
+            },
+            {
+                "t": 1620345,
+                "x": 779,
+                "y": 909
+            },
+            {
+                "t": 1620565,
+                "x": 780,
+                "y": 909
+            },
+            {
+                "t": 1620597,
+                "x": 808,
+                "y": 904
+            },
+            {
+                "t": 1630236,
+                "x": 808,
+                "y": 692
+            },
+            {
+                "t": 1630286,
+                "x": 437,
+                "y": 668
+            },
+            {
+                "t": 1630331,
+                "x": 305,
+                "y": 689
+            },
+            {
+                "t": 1630386,
+                "x": 342,
+                "y": 698
+            },
+            {
+                "t": 1630415,
+                "x": 363,
+                "y": 702
+            },
+            {
+                "t": 1630446,
+                "x": 363,
+                "y": 701
+            },
+            {
+                "t": 1630515,
+                "x": 363,
+                "y": 700
+            },
+            {
+                "t": 1630597,
+                "x": 363,
+                "y": 698
+            },
+            {
+                "t": 1630639,
+                "x": 363,
+                "y": 695
+            },
+            {
+                "t": 1630744,
+                "x": 363,
+                "y": 694
+            },
+            {
+                "t": 1630763,
+                "x": 363,
+                "y": 691
+            },
+            {
+                "t": 1631122,
+                "x": 364,
+                "y": 691
+            },
+            {
+                "t": 1631169,
+                "x": 367,
+                "y": 693
+            },
+            {
+                "t": 1631222,
+                "x": 375,
+                "y": 721
+            },
+            {
+                "t": 1631271,
+                "x": 385,
+                "y": 753
+            },
+            {
+                "t": 1631324,
+                "x": 392,
+                "y": 783
+            },
+            {
+                "t": 1631374,
+                "x": 396,
+                "y": 798
+            },
+            {
+                "t": 1631421,
+                "x": 399,
+                "y": 812
+            },
+            {
+                "t": 1631454,
+                "x": 400,
+                "y": 816
+            },
+            {
+                "t": 1678085,
+                "x": 455,
+                "y": 22
+            },
+            {
+                "t": 1678134,
+                "x": 588,
+                "y": 153
+            },
+            {
+                "t": 1678166,
+                "x": 808,
+                "y": 343
+            }
         ],
         "mousedown": [
             {
@@ -718,4 +948,6 @@ function _0x420d7c(_0x4a761c) {
     "s": 657291179,
     "solve_token": true
 }
-```
+
+let a = encrypt(payload);
+console.log(a);
